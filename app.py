@@ -11,7 +11,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 model = None
 vectorizer = None
 
-# ✅ Safe loading WITHOUT crashing app
+# ✅ Load model and vectorizer safely
 def load_model():
     global model, vectorizer
     try:
@@ -21,14 +21,14 @@ def load_model():
     except Exception as e:
         print("Error loading model ❌:", e)
 
-# Call AFTER app starts
 load_model()
 
-
+# ✅ Clean text function
 def clean_text(text):
     text = text.lower()
     text = re.sub(r'\W', ' ', text)
-    text = re.sub('[%s]' % re.escape(string.punctuation), '', text)
+    text = re.sub(r'\s+', ' ', text)
+    text = text.strip()
     return text
 
 
@@ -48,20 +48,23 @@ def home():
             result = "⚠ Please enter some text"
         else:
             try:
+                # Clean + vectorize
                 cleaned = clean_text(news)
                 vector = vectorizer.transform([cleaned])
 
-                prediction = model.predict(vector)
-                proba = model.predict_proba(vector)
+                # Predict
+                prediction = model.predict(vector)[0]
+                proba = model.predict_proba(vector)[0]
 
-                conf = round(max(proba[0]) * 100, 2)
+                conf = round(max(proba) * 100, 2)
 
-                if prediction[0] == 1:
-                    result = "✅ Real News"
-                    label = "real"
-                else:
+                # ✅ FLIPPED LOGIC (FIX for your model issue)
+                if prediction == 1:
                     result = "❌ Fake News"
                     label = "fake"
+                else:
+                    result = "✅ Real News"
+                    label = "real"
 
                 confidence = f"Confidence: {conf}%"
 
