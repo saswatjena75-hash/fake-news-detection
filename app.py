@@ -6,10 +6,13 @@ import os
 
 app = Flask(__name__)
 
-# ✅ Correct path handling (IMPORTANT for Render)
+# ✅ Base directory (important for Render)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # ✅ Load model safely
+model = None
+vectorizer = None
+
 try:
     model = pickle.load(open(os.path.join(BASE_DIR, "model.pkl"), "rb"))
     vectorizer = pickle.load(open(os.path.join(BASE_DIR, "vectorizer.pkl"), "rb"))
@@ -18,7 +21,7 @@ except Exception as e:
     print("Error loading model ❌:", e)
 
 
-# ✅ Text cleaning
+# ✅ Text cleaning function
 def clean_text(text):
     text = text.lower()
     text = re.sub(r'\W', ' ', text)
@@ -33,7 +36,9 @@ def home():
     confidence = ""
     label = ""
 
-    print("Route accessed")  # debug log
+    # 🔴 Prevent crash if model not loaded
+    if model is None or vectorizer is None:
+        return "⚠ Model failed to load. Check Render logs."
 
     if request.method == "POST":
         news = request.form.get("news")
@@ -66,7 +71,7 @@ def home():
     return render_template("index.html", result=result, confidence=confidence, label=label)
 
 
-# ✅ Required for Render (but Gunicorn will handle this)
+# ✅ Required for local + Render fallback
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
