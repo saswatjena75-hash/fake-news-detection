@@ -1,28 +1,19 @@
 from flask import Flask, request, render_template
 import pickle
 import re
-import string
 import os
 
 app = Flask(__name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-model = None
-vectorizer = None
-
 # Load model + vectorizer
-def load_model():
-    global model, vectorizer
-    try:
-        model = pickle.load(open(os.path.join(BASE_DIR, "model.pkl"), "rb"))
-        vectorizer = pickle.load(open(os.path.join(BASE_DIR, "vectorizer.pkl"), "rb"))
-        print("Model loaded successfully ✅")
-        print("Model classes:", model.classes_)  # DEBUG
-    except Exception as e:
-        print("Error loading model ❌:", e)
+model = pickle.load(open(os.path.join(BASE_DIR, "model.pkl"), "rb"))
+vectorizer = pickle.load(open(os.path.join(BASE_DIR, "vectorizer.pkl"), "rb"))
 
-load_model()
+print("Model loaded successfully ✅")
+print("Model classes:", model.classes_)
+
 
 # Clean text
 def clean_text(text):
@@ -34,9 +25,6 @@ def clean_text(text):
 
 @app.route("/", methods=["GET", "POST"])
 def home():
-    if model is None or vectorizer is None:
-        return "⚠ Model failed to load. Check logs."
-
     result = ""
     confidence = ""
     label = ""
@@ -48,32 +36,29 @@ def home():
             result = "⚠ Please enter some text"
         else:
             try:
+                # preprocess
                 cleaned = clean_text(news)
                 vector = vectorizer.transform([cleaned])
 
+                # ✅ YOUR EXACT PREDICTION LOGIC
                 prediction = model.predict(vector)[0]
                 proba = model.predict_proba(vector)[0]
 
                 conf = round(max(proba) * 100, 2)
 
-                # ✅ SAFE LOGIC (NO GUESSING)
-                predicted_class = model.classes_[prediction]
-
-                # Normalize label safely
-                predicted_str = str(predicted_class).lower()
-
-                if predicted_str in ["fake", "0", "false"]:
-                    result = "❌ Fake News"
-                    label = "fake"
-                else:
+                # 🔥 DIRECT FIX (NO GUESSING)
+                if str(prediction).lower() in ["1", "true", "real"]:
                     result = "✅ Real News"
                     label = "real"
+                else:
+                    result = "❌ Fake News"
+                    label = "fake"
 
                 confidence = f"Confidence: {conf}%"
 
             except Exception as e:
-                result = "⚠ Error processing input"
                 print("Prediction error:", e)
+                result = "⚠ Error processing input"
 
     return render_template(
         "index.html",
