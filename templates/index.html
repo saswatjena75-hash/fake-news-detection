@@ -1,31 +1,261 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Fake News Detector</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta charset="UTF-8">
+  <title>News Checker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    :root {
+      --bg: #f5f7fa;
+      --card: #ffffff;
+      --text: #222;
+      --primary: #4a90e2;
+      --fake: #ff4d4d;
+      --real: #2ecc71;
+    }
+
+    body.dark {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --text: #f1f5f9;
+      --primary: #60a5fa;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      transition: 0.3s;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 700px;
+      background: var(--card);
+      padding: 25px;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 15px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 160px;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+      outline: none;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 10px;
+      padding: 10px;
+      margin-top: 10px;
+      background: var(--primary);
+      color: white;
+      width: 100%;
+    }
+
+    button:hover {
+      opacity: 0.9;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .row button {
+      flex: 1;
+      background: #ddd;
+      color: #333;
+    }
+
+    .result {
+      margin-top: 15px;
+      padding: 15px;
+      border-radius: 10px;
+      text-align: center;
+      font-weight: bold;
+      animation: fadeIn 0.5s ease;
+    }
+
+    .fake {
+      background: #ffe5e5;
+      color: var(--fake);
+    }
+
+    .real {
+      background: #e6ffed;
+      color: var(--real);
+    }
+
+    .confidence {
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    .bar {
+      width: 100%;
+      background: #ddd;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 5px;
+    }
+
+    .fill {
+      height: 10px;
+      background: var(--primary);
+      width: 0%;
+      transition: 0.6s;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .history {
+      margin-top: 15px;
+      font-size: 13px;
+      opacity: 0.8;
+    }
+
+    .history-item {
+      margin-top: 5px;
+      padding: 5px;
+      border-bottom: 1px solid #ccc;
+    }
+
+    .loader {
+      display: none;
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    @keyframes fadeIn {
+      from {opacity: 0; transform: translateY(10px);}
+      to {opacity: 1; transform: translateY(0);}
+    }
+  </style>
 </head>
+
 <body>
 
 <div class="container">
-    <h1>📰 Fake News Detection System</h1>
 
-    <form method="POST">
-        <textarea name="news" placeholder="Paste news here..."></textarea>
-        <button type="submit">Analyze</button>
-    </form>
+  <div class="topbar">
+    <h1>News Checker</h1>
+    <button onclick="toggleDark()">🌙</button>
+  </div>
 
-    {% if result %}
-        <div class="result {{ label }}">
-            <h2>{{ result }}</h2>
-            <p>{{ confidence }}</p>
-        </div>
-    {% endif %}
+  <form method="POST" onsubmit="showLoader()">
+    <textarea id="news" name="news" placeholder="Enter news text..."></textarea>
 
-    <div class="info">
-        <h3>How it works</h3>
-        <p>This system uses Machine Learning and NLP to classify news content.</p>
+    <div class="row">
+      <button type="button" onclick="fillReal()">Sample Real</button>
+      <button type="button" onclick="fillFake()">Sample Fake</button>
     </div>
+
+    <button type="submit">Check</button>
+  </form>
+
+  <div class="loader" id="loader">Checking...</div>
+
+  {% if result %}
+    <div class="result {% if label == 'real' %}real{% else %}fake{% endif %}">
+      {{ result }}
+    </div>
+
+    <div class="confidence">
+      {{ confidence }}
+      <div class="bar">
+        <div class="fill" id="bar"></div>
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="history" id="history"></div>
+
 </div>
+
+<script>
+  function fillReal() {
+    document.getElementById("news").value =
+      "The government has announced new infrastructure development plans to improve transportation and connectivity.";
+  }
+
+  function fillFake() {
+    document.getElementById("news").value =
+      "Scientists confirmed that eating ice cream at night can make humans fly for 10 minutes.";
+  }
+
+  function toggleDark() {
+    document.body.classList.toggle("dark");
+  }
+
+  function showLoader() {
+    document.getElementById("loader").style.display = "block";
+  }
+
+  // Confidence bar animation
+  window.onload = function () {
+    let confidenceText = "{{ confidence }}";
+    let match = confidenceText.match(/(\d+\.?\d*)/);
+
+    if (match) {
+      let value = parseFloat(match[1]);
+      document.getElementById("bar").style.width = value + "%";
+    }
+
+    saveHistory();
+  };
+
+  function saveHistory() {
+    let result = "{{ result }}";
+    let news = document.getElementById("news")?.value;
+
+    if (result && news) {
+      let history = JSON.parse(localStorage.getItem("history") || "[]");
+      history.unshift({news, result});
+      history = history.slice(0, 5);
+      localStorage.setItem("history", JSON.stringify(history));
+    }
+
+    renderHistory();
+  }
+
+  function renderHistory() {
+    let history = JSON.parse(localStorage.getItem("history") || "[]");
+    let box = document.getElementById("history");
+
+    box.innerHTML = "<h4>Recent Checks</h4>";
+    history.forEach(h => {
+      box.innerHTML += `<div class='history-item'><b>${h.result}</b><br>${h.news.slice(0, 60)}...</div>`;
+    });
+  }
+</script>
 
 </body>
 </html>
